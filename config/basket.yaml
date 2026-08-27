@@ -1,0 +1,110 @@
+# The recommended basket.
+#
+# This is the beginner facing output: a diversified spread across asset classes
+# with a plain sentence for each holding, rather than a screen of ratios.
+#
+# The structure is deliberately core and satellite, and it is worth being blunt
+# about what that means. The core is there to keep you close to the market. The
+# satellites are the only place an edge over the market can come from, and they
+# are therefore also the only place a shortfall can come from. A portfolio that
+# is all core cannot beat the index; one that is all satellite is not a safe
+# hold. The bands below are where those two facts are traded off, and moving
+# them is how you change the risk of this thing.
+
+version: 1
+
+# Every sleeve is a share of total equity. Floors and ceilings are hard: the
+# builder will leave a sleeve underweight rather than breach another's ceiling,
+# and the risk gate re-checks all of it afterwards anyway.
+sleeves:
+  core_index:
+    label: Index funds
+    classes: [index_etfs]
+    # Core: tracks the market by design. Cannot beat it, unlikely to embarrass
+    # you. The satellite share quoted to the reader is everything not marked
+    # core, so this flag decides a number they actually read.
+    core: true
+    target: 0.25
+    min: 0.15
+    max: 0.40
+    max_names: 3
+    plain: >-
+      One fund that owns hundreds of companies at once. The cheapest and
+      dullest way to own the market, and the part of this basket least likely
+      to go badly wrong.
+
+  core_equity:
+    label: Individual companies
+    classes: [us_stocks]
+    core: true
+    target: 0.22
+    min: 0.10
+    max: 0.35
+    max_names: 5
+    plain: >-
+      Large, established businesses held one at a time. More concentrated than
+      the index funds above, which cuts both ways.
+
+  sector_tilt:
+    label: Sector tilts
+    classes: [sectors]
+    target: 0.16
+    min: 0.08
+    max: 0.25
+    max_names: 3
+    plain: >-
+      A lean toward the parts of the market doing best right now, bought
+      through funds that hold the whole sector rather than single companies.
+
+  themes:
+    label: Themes
+    classes: [theme_etfs]
+    target: 0.10
+    min: 0.0
+    max: 0.16
+    max_names: 3
+    plain: >-
+      Funds concentrated on one idea, such as semiconductors or growth
+      companies. Higher reward and higher regret than a broad index fund.
+
+  hard_assets:
+    label: Gold and energy
+    classes: [gold, oil, clean_energy]
+    target: 0.12
+    min: 0.05
+    max: 0.18
+    max_names: 4
+    plain: >-
+      Gold and energy tend to hold up when shares do not, which is the point of
+      owning them. Expect them to look like dead weight in a good year.
+
+  crypto:
+    label: Crypto
+    classes: [crypto]
+    target: 0.04
+    min: 0.0
+    max: 0.08
+    max_names: 2
+    plain: >-
+      A small, deliberately capped allocation. Sized so that losing most of it
+      would be annoying rather than serious.
+
+# Held back on purpose, not left over. Cash is what lets the portfolio buy
+# something during a fall instead of having to sell to raise money.
+cash:
+  target: 0.20
+  min: 0.10
+
+# A name has to clear this to enter the basket at all. Lower than the trading
+# rubric's threshold because a basket holding is a long term hold rather than a
+# fresh conviction buy, but not so low that anything qualifies.
+min_score: 55
+
+# Prefer names that managers with a positive measured record are also holding.
+# This is a tie breaker between two names that already qualify, not a reason to
+# hold something the rubric rejected. Following somebody else's book is only
+# ever a reason to look, never a reason to buy.
+tracker_tilt:
+  enabled: true
+  bonus_per_backer: 2.0
+  max_bonus: 6.0

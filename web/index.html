@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Portfolio console</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230c0e0d'/><text y='23' x='4' font-family='monospace' font-size='18' fill='%23d6a340'>G</text></svg>">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div id="login" class="login-wrap" hidden>
+  <canvas id="boot-orb" class="boot-orb"></canvas>
+  <form class="login" id="login-form">
+    <div class="mark">G&gt;_</div>
+    <h1>Portfolio console</h1>
+    <input type="password" id="pw" placeholder="dashboard password" autocomplete="current-password" required>
+    <button class="btn gold" style="width:100%" type="submit">Enter</button>
+    <div class="err" id="login-err"></div>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <aside>
+    <div class="brand">
+      <div class="mark">G&gt;_<span>|</span></div>
+      <div class="title">Portfolio console</div>
+      <div class="sub" id="mode-line">paper &middot; loading</div>
+    </div>
+
+    <div class="rail">
+      <div class="rail-label">Asset classes</div>
+      <div id="classes"></div>
+
+      <div class="rail-sep"></div>
+      <div class="rail-label">Views</div>
+      <button class="nav-btn active" data-view="overview"><span>Overview</span></button>
+      <button class="nav-btn" data-view="basket"><span>What to hold</span></button>
+      <button class="nav-btn" data-view="committee"><span>Committee</span></button>
+      <button class="nav-btn" data-view="sectors"><span>Sector map</span></button>
+      <button class="nav-btn" data-view="trackers"><span>Who beats SPY</span></button>
+      <button class="nav-btn" data-view="smartmoney"><span>Smart money</span></button>
+      <button class="nav-btn" data-view="proposals"><span>Proposals</span><span class="pill zero" id="pending-pill">0</span></button>
+      <button class="nav-btn" data-view="manual"><span>Manual trade</span></button>
+      <button class="nav-btn" data-view="connect"><span>Connect &amp; import</span></button>
+      <button class="nav-btn" data-view="events"><span>Events</span><span class="pill zero" id="events-pill">0</span></button>
+      <button class="nav-btn" data-view="memo"><span>Daily memo</span></button>
+      <button class="nav-btn" data-view="orders"><span>Order log</span></button>
+    </div>
+
+    <!-- disclosed filings, newest first -->
+    <div class="tape-wrap">
+      <div class="rail-label tape-label">
+        <span>Disclosed flow</span>
+        <span class="tape-dot" id="tape-dot"></span>
+      </div>
+      <div class="tape-list" id="tape-list">
+        <div class="tape-empty">loading filings</div>
+      </div>
+    </div>
+
+    <div class="rail-foot" id="health">checking brokers</div>
+  </aside>
+
+  <main>
+    <header class="top">
+      <div class="kpi">
+        <div class="k">Equity</div>
+        <div class="v" id="kpi-equity">&mdash;</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Cash</div>
+        <div class="v small" id="kpi-cash">&mdash;</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Open P&amp;L</div>
+        <div class="v small" id="kpi-pl">&mdash;</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Positions</div>
+        <div class="v small" id="kpi-count">&mdash;</div>
+      </div>
+      <div class="top-right">
+        <div class="edge-strip" id="edge-strip"><span class="dim">measuring edge</span></div>
+        <div class="live"><span class="dot ok"></span><span id="live-label">live</span></div>
+        <button class="autopilot" id="btn-autopilot" title="Event-driven automatic execution">
+          <span class="dot bad"></span><span id="autopilot-label">AUTOPILOT OFF</span>
+        </button>
+        <button class="btn" id="btn-news">Scan news</button>
+        <button class="btn" id="btn-run">Run scan</button>
+        <button class="btn" id="btn-logout">Exit</button>
+      </div>
+    </header>
+
+    <div class="tape" id="tape"></div>
+
+    <div class="content" id="content">
+      <div class="empty">loading</div>
+    </div>
+
+    <div class="disclaimer">
+      Paper account. Research and decision support only, not financial advice.
+      Nothing is sent to a broker without an explicit approval on this page.
+    </div>
+  </main>
+</div>
+
+<script src="/sphere.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+# Who else is buying, and how much their buying should count.
+#
+# Every CIK below was looked up against EDGAR and confirmed to have filed a
+# 13F-HR. Do not add one from memory. Check it first:
+#   https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=NAME&type=13F-HR
+
+version: 1
+
+sources:
+  congress: true
+  insider: true
+  fund: true
+
+# Relative trust, not relative size. An officer buying their own company's
+# stock on the open market is the least ambiguous of the three: they know the
+# business, they are spending their own money, and the filing lands within two
+# days. A 13F is a snapshot up to 45 days stale and cannot distinguish a
+# conviction buy from an index-tracking rebalance, so it counts least.
+source_weights:
+  insider: 1.0
+  congress: 0.7
+  fund: 0.5
+
+# A disclosure decays by half every this many days from the trade date. At 45
+# days a trade carries half the weight it did the day it happened, which is
+# roughly the point at which the congressional filing deadline makes the news
+# public anyway.
+decay_half_life_days: 45
+
+# How many disclosures a symbol needs before the signal is taken at full
+# strength. Below this the score is shrunk toward neutral, so one senator does
+# not move a position.
+full_conviction_trades: 6
+
+# 13F values move with the share price, so a position nobody touched still
+# changes in dollar value quarter on quarter. Only changes past this fraction
+# are read as a decision rather than as drift.
+fund_change_threshold: 0.20
+
+# A fund that stopped filing is not a fund with no opinion, it is a dead data
+# source. Skip any whose most recent 13F is older than this rather than
+# reporting last year's book as current.
+max_staleness_days: 200
+
+funds:
+  - name: Berkshire Hathaway
+    cik: 1067983
+  - name: Bridgewater Associates
+    cik: 1350694
+  - name: Appaloosa
+    cik: 1656456
+  - name: Coatue Management
+    cik: 1135730
+  - name: Renaissance Technologies
+    cik: 1037389
+  - name: Lone Pine Capital
+    cik: 1061165
+  - name: Tiger Global Management
+    cik: 1167483
+  - name: Third Point
+    cik: 1040273
+  - name: Soros Fund Management
+    cik: 1029160
+  - name: Duquesne Family Office
+    cik: 1536411
+  - name: Pershing Square
+    cik: 1336528
+  # Files intermittently. The staleness guard above drops it automatically
+  # when it goes quiet rather than presenting a stale book as current.
+  - name: Scion Asset Management
+    cik: 1649339

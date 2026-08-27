@@ -1,0 +1,117 @@
+# Hard constraints, enforced by src/risk.py in deterministic Python.
+# The model never evaluates these. It only reads the PASS/FAIL result.
+# Changing a number here changes system behaviour with no prompt edits.
+
+version: 2
+
+# This is a buy and hold investment portfolio, not a trading account.
+# Positions are opened with a thesis and held until the thesis breaks. The
+# limits below are tuned to make trading rare and holding the default.
+horizon: buy_and_hold
+
+limits:
+  max_single_position: 0.25      # no name above 25% of equity
+  max_class_exposure: 0.40       # no asset class above 40% of equity
+  min_cash: 0.10                 # always hold >=10% cash
+  max_gross_exposure: 0.90       # never deploy more than 90%
+  min_position: 0.03             # a position too small to matter is not worth holding
+  rebalance_band: 0.07           # ignore drift under 7 points; hold, do not tune
+  max_new_positions_per_run: 2   # build the book slowly
+  max_turnover_per_run: 0.10     # total |weight change| per scheduled run
+
+  # A position may not be trimmed or closed inside this window by ordinary
+  # rebalancing. Only a thesis invalidation or a hard risk breach overrides it,
+  # which is the difference between investing and reacting to noise.
+  min_holding_days: 30
+
+gates:
+  require_exit_rule: true            # every proposal states what makes it exit
+  require_thesis_invalidation: true  # every proposal states what breaks the thesis
+  require_human_approval: true       # scheduled runs never place orders themselves
+  reject_on_stale_data: true
+  max_data_staleness_hours: 36
+
+# Scores below this can never be proposed as a BUY or INCREASE.
+score_threshold: 60
+
+# A score built from too little of the rubric is not a score. Below this share
+# of measured weight a symbol is ineligible regardless of what it scored.
+min_rubric_coverage: 0.40
+
+# ---------------------------------------------------------------------------
+# Event-driven autopilot
+#
+# Scheduled runs always propose and wait. This block governs the separate
+# event path: a material news item lands, the system re-evaluates that one
+# name, and may act without waiting for a click.
+#
+# It is deliberately narrower than the scheduled path. An event may only
+# trigger a trade in the name the news is about, never a portfolio-wide
+# reshuffle, and everything still passes the same limits above.
+# ---------------------------------------------------------------------------
+autopilot:
+  enabled: false                 # armed from the dashboard, not from here
+  paper_only: true               # refused on a live account regardless
+
+  # What counts as worth acting on. Both must clear.
+  min_materiality: 0.70          # 0-1, how much this changes the thesis
+  min_confidence: 0.60           # 0-1, how sure the classifier is
+
+  max_trades_per_day: 3
+  max_notional_per_trade_pct: 0.05   # no single automatic order above 5% of equity
+  cooldown_minutes: 90               # per symbol, stops one story firing repeatedly
+
+  # Exits are risk actions and are held to a lower bar than entries. A thesis
+  # that has broken should close whether or not the maths likes the odds.
+  allow_auto_exit: true
+  allow_auto_entry: true
+
+kelly:
+  # Fractional Kelly. Full Kelly assumes you know the true win probability;
+  # here that number comes from a model reading a headline, so it is an
+  # estimate with real error bars. Quarter Kelly is the standard defensive
+  # choice and costs little expected growth for a large drop in variance.
+  fraction: 0.25
+
+  # Do not act unless the sized bet clears this share of equity. Below it the
+  # edge is not worth the spread and the attention.
+  min_position_pct: 0.02
+
+  # Kelly may only ever size down from max_single_position, never above it.
+  # This is enforced in code, not just here.
+  cap_at_max_single_position: true
+
+  # If the model cannot give a probability and a payoff, there is no Kelly
+  # fraction to compute and the event becomes a proposal for review instead.
+  require_explicit_estimate: true
+
+# ---------------------------------------------------------------------------
+# The objective
+# ---------------------------------------------------------------------------
+#
+# The stated aim is to beat SPY by 8 to 10 points a year. Writing it here does
+# not make it happen, and nothing in this system can promise it. What the
+# number does is give every run something to be measured against, and it makes
+# a failing stretch visible instead of arguable.
+#
+# Read the honest version of this: an 8 point annual edge over the S&P is
+# roughly top-decile active management sustained for years. The realistic
+# outcome for a rules-based long-only book of large caps is a few points either
+# side of the index, and the most likely single outcome is slightly behind it
+# after costs. The dashboard therefore always shows the do-nothing comparison
+# next to the target, because the only number that matters is whether this beat
+# simply holding the benchmark.
+objective:
+  benchmark: SPY
+  target_excess_annual_pct: 8.0
+  stretch_excess_annual_pct: 10.0
+
+  # Below this, the book is losing to the thing it is trying to beat and the
+  # memo says so at the top rather than in a footnote.
+  alarm_excess_annual_pct: -2.0
+
+  # Do not judge an edge on a short sample. Under this many sessions the
+  # dashboard reports the number as provisional and refuses to annualise it,
+  # because annualising six weeks of returns produces a headline figure that
+  # is mostly noise multiplied by four.
+  min_sessions_for_verdict: 120

@@ -1,0 +1,36 @@
+.env
+.env.local
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# The audit trail is yours, not the repo's. Snapshots contain your positions.
+data/snapshots/
+data/runs/
+data/theses.json
+data/executions.jsonl
+data/mock_state.json
+reports/
+
+# deploy artefacts
+caddy_data/
+caddy_config/
+*.png
+
+# Derived caches. All of it is re-fetchable from the SEC, the House Clerk and
+# yfinance, none of it is source, and the smart money cache alone is a couple
+# of hundred files after one run.
+data/smartmoney/
+data/committee/
+data/rag/
+data/fundamentals.json
+data/events.json
+data/stream.json
+data/sectors/
+data/trackers/
+data/committee_cursor.json
+
+# Broker credentials. Owner-only permissions, never committed, never returned
+# by the API.
+data/connections.json

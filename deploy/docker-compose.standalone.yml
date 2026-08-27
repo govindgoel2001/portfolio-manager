@@ -1,0 +1,63 @@
+# Use this only on a host with nothing already bound to 80/443. It brings its
+# own Caddy and issues its own certificate.
+#
+#   docker compose -f docker-compose.standalone.yml up -d --build
+
+services:
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: portfolio-manager:latest
+    container_name: pm-app
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - ../data:/app/data
+      - ../reports:/app/reports
+      - ../config:/app/config:ro
+    expose: ["8000"]
+    networks: [pm]
+
+  scheduler:
+    image: portfolio-manager:latest
+    container_name: pm-scheduler
+    restart: unless-stopped
+    depends_on: [app]
+    env_file: ../.env
+    volumes:
+      - ../data:/app/data
+      - ../reports:/app/reports
+      - ../config:/app/config:ro
+    command: ["python", "scheduler.py"]
+    # The image healthcheck probes the HTTP port. This container runs no
+    # server, so without disabling it the scheduler reports unhealthy forever.
+    healthcheck:
+      disable: true
+    networks: [pm]
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: pm-caddy
+    restart: unless-stopped
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PM_HOSTNAME: ${PM_HOSTNAME}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [pm]
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  pm:
+    driver: bridge

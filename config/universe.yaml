@@ -1,0 +1,89 @@
+# The complete set of assets this system is allowed to reason about.
+# Anything not listed here can never appear in a proposal, no matter what
+# the model says. Sidebar tabs on the dashboard are generated from these keys.
+
+version: 1
+
+classes:
+
+  us_stocks:
+    label: US Stocks
+    icon: chart
+    broker: alpaca_paper
+    symbols: [AAPL, MSFT, NVDA, AMZN, GOOGL, META, AVGO, JPM, UNH, COST]
+
+  crypto:
+    label: Crypto
+    icon: coin
+    broker: alpaca_paper
+    # Alpaca crypto symbols are PAIR format. The adapter normalises these.
+    symbols: [BTC/USD, ETH/USD, SOL/USD, LINK/USD]
+
+  gold:
+    label: Gold
+    icon: bar
+    broker: alpaca_paper
+    # No futures on a paper equities account. These are the tradeable proxies.
+    proxy_for: XAUUSD
+    symbols: [GLD, IAU, GDX]
+
+  oil:
+    label: Oil
+    icon: drop
+    broker: alpaca_paper
+    proxy_for: CL1
+    # USO and BNO track the commodity. XLE used to sit here too, but it holds
+    # energy *companies*, not oil, and it now lives under sectors where it
+    # belongs. A symbol has exactly one class: the router and the sidebar both
+    # assume it, and a symbol in two classes silently breaks class_of().
+    symbols: [USO, BNO]
+
+  # Broad index funds. The cheapest, dullest way to own the market, and the
+  # right core for somebody who does not want to pick anything.
+  #
+  # VOO tracks the same index as the benchmark and VTI is nearly the same
+  # thing plus small caps. Holding either means matching the market on that
+  # slice by construction, never beating it. That is a legitimate choice and
+  # the basket says so in as many words rather than dressing it up as a pick.
+  index_etfs:
+    label: Index funds
+    icon: grid
+    broker: alpaca_paper
+    # SPY is here as well as being the benchmark. Without it the fallback
+    # in class_of() files it under us_stocks, and it turns up in the
+    # basket's individual companies sleeve looking like a stock pick.
+    symbols: [SPY, QQQ, VOO, VTI, IWM, DIA]
+
+  # Themes: technology, semiconductors, growth, and dividend income.
+  theme_etfs:
+    label: Themes
+    icon: chart
+    broker: alpaca_paper
+    symbols: [VGT, VUG, VYM, SMH, SOXX, ARKK]
+
+  # Clean energy, held as two funds and three operating companies. Far more
+  # volatile than the sector funds above; the basket caps it accordingly.
+  clean_energy:
+    label: Clean energy
+    icon: drop
+    broker: alpaca_paper
+    symbols: [ICLN, TAN, BE, FSLR, ENPH]
+
+  # The eleven SPDR select sector funds, one per US sector.
+  #
+  # These are here so a view about a sector is expressible as a position. The
+  # heatmap ranks sectors and the committee can sit on one; without a tradeable
+  # instrument behind each tile, both are commentary.
+  #
+  # XLE already appears under oil as an energy proxy. A symbol may belong to
+  # two classes: the sidebar shows it under both, and class_of() resolves it to
+  # the first match, which is why oil is declared above this block.
+  sectors:
+    label: Sectors
+    icon: grid
+    broker: alpaca_paper
+    symbols: [XLK, XLC, XLY, XLP, XLE, XLF, XLV, XLI, XLB, XLRE, XLU]
+
+# Benchmark the whole portfolio against this. Every report answers
+# "did the do-nothing portfolio beat us" before it proposes anything.
+benchmark: SPY

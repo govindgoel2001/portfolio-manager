@@ -1,0 +1,97 @@
+# The leaderboard.
+#
+# Every CIK here was resolved against EDGAR and confirmed to file 13F-HR. Do
+# not add one from memory:
+#   https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=NAME&type=13F-HR
+#
+# The list is chosen to be a fair test rather than a flattering one. It mixes
+# managers with famous track records, managers who are mostly market neutral
+# and will therefore look bad on a long-only measurement, and index-like giants
+# whose 13F is close to owning the market. If the leaderboard shows most of
+# them failing to beat SPY, that is the finding, not a bug.
+
+version: 1
+
+# How many quarterly windows to measure per fund. Four is a year, which is
+# enough to see whether a number is a track record or a single lucky quarter.
+quarters: 4
+
+funds:
+  # Quant and systematic
+  - name: Jim Simons (Renaissance)
+    cik: 1037389
+  - name: Citadel Advisors
+    cik: 1423053
+  - name: Millennium Management
+    cik: 1273087
+  - name: Point72
+    cik: 1603466
+
+  # Concentrated discretionary
+  - name: Berkshire Hathaway
+    cik: 1067983
+  - name: Pershing Square
+    cik: 1336528
+  - name: Appaloosa
+    cik: 1656456
+  - name: Third Point
+    cik: 1040273
+  - name: Duquesne Family Office
+    cik: 1536411
+  - name: Soros Fund Management
+    cik: 1029160
+
+  # Growth and technology
+  - name: Coatue Management
+    cik: 1135730
+  - name: Tiger Global
+    cik: 1167483
+  - name: Lone Pine Capital
+    cik: 1061165
+  - name: ARK Invest
+    cik: 1697748
+
+  # Macro and the famous contrarian. Both are here knowing they measure badly
+  # on a long-only US equity basis: Bridgewater expresses most of its view in
+  # futures and currencies that never appear on a 13F, and Scion files
+  # intermittently. Keeping them on the board with honest numbers is better
+  # than quietly dropping the names people actually want to see.
+  - name: Bridgewater Associates
+    cik: 1350694
+  - name: Michael Burry (Scion)
+    cik: 1649339
+
+# Do the opposite of what these managers did: hold, equal weighted, the names
+# they materially trimmed or exited last quarter.
+#
+# For a long only account "inverse" cannot mean shorting their book, so it means
+# buying what they sold. That is a different bet from betting against them, and
+# the difference is worth stating: a manager who sells a winner to take profits
+# makes this look clever, and one who sells a loser before it falls further
+# makes it look stupid. Neither says whether they were right.
+inverse:
+  - name: Michael Burry (Scion)
+    cik: 1649339
+  - name: Berkshire Hathaway
+    cik: 1067983
+  - name: Jim Simons (Renaissance)
+    cik: 1037389
+
+congress:
+  - name: Congress buys
+    hold_days: 90
+  - name: Nancy Pelosi
+    member: Pelosi
+    hold_days: 90
+  # Filed under her spouse's name in some reports; the matcher is a substring
+  # over the filer name, so both resolve to the same member where they appear.
+
+# Not included, and why.
+#
+# Inverse Cramer has no filing behind it. It would have to be reconstructed
+# from television transcripts, and the entry timing would be a guess, so any
+# number this system produced for it would be fiction with a chart attached.
+#
+# Retail copy-trading leaderboards (Autopilot and similar) publish returns for
+# portfolios whose holdings are proprietary. Those numbers cannot be verified
+# from a primary source, so they are not mirrored here as if they were.

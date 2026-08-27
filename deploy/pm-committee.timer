@@ -1,0 +1,32 @@
+[Unit]
+Description=Sit the committee on the next few names, eight times a day
+Documentation=file:///opt/portfolio-manager/run_committee.py
+
+[Timer]
+# Eight sittings on New York local time, so they track the market's day and
+# follow daylight saving without anyone editing this file twice a year.
+#
+#   04:05  before Europe opens, on yesterday's close
+#   09:05  pre-open
+#   10:35  after the opening auction has settled
+#   12:05  midday
+#   14:05  early afternoon
+#   15:45  before the close
+#   17:05  after the close, on the day's actual prints
+#   21:05  overnight, with Asia trading
+#
+# Three names a sitting covers all thirty one instruments about every
+# eighteen hours, so no verdict on the board is ever more than a day old.
+OnCalendar=*-*-* 04,09:05:00 America/New_York
+OnCalendar=*-*-* 10:35:00 America/New_York
+OnCalendar=*-*-* 12,14:05:00 America/New_York
+OnCalendar=*-*-* 15:45:00 America/New_York
+OnCalendar=*-*-* 17,21:05:00 America/New_York
+
+# A sitting is inference, not a market order, so a late start is harmless and
+# a missed one should still happen.
+Persistent=true
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target

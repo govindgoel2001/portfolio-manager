@@ -1,0 +1,13 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.env
+.env.local
+# Anchored to the repo root on purpose. A bare `data/` also matches src/data/,
+# which silently ships an image missing the news and fundamentals providers.
+/data/
+/reports/
+tests/
+.playwright-mcp/
+*.png

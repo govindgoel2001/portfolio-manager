@@ -1,0 +1,62 @@
+# Runs alongside whatever else is on the box.
+#
+# There is no proxy service here on purpose: the target VPS already runs Caddy
+# on 80/443 for other sites, so the app binds to loopback only and the host
+# Caddy terminates TLS in front of it. See deploy/CADDY-VHOST.md for the block
+# to append. If you deploy somewhere with nothing on 80/443, use
+# docker-compose.standalone.yml instead, which brings its own Caddy.
+
+services:
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: portfolio-manager:latest
+    container_name: pm-app
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - ../data:/app/data
+      - ../reports:/app/reports
+      - ../config:/app/config:ro
+    ports:
+      # Loopback only. Never publish this on 0.0.0.0 - the approve endpoint
+      # would then be reachable without going through TLS.
+      - "127.0.0.1:${PM_PORT:-8791}:8000"
+    networks: [pm]
+
+  # Real-time news over Alpaca's WebSocket, replacing the twenty minute poll.
+  # A headline is prefiltered in memory and, when material, handed to
+  # run_event.py, which owns the whole decision path. This process never
+  # classifies, sizes or trades.
+  #
+  # There is no scheduler container any more. Hermes owns the daily cadence
+  # through systemd timers on the host (open, close, overnight) and does the
+  # reasoning itself, rather than a cron loop shelling out to a script.
+  stream:
+    image: portfolio-manager:latest
+    container_name: pm-stream
+    restart: unless-stopped
+    depends_on:
+      - app
+    env_file: ../.env
+    volumes:
+      - ../data:/app/data
+      - ../reports:/app/reports
+      - ../config:/app/config:ro
+    command: ["python", "-m", "src.stream"]
+    healthcheck:
+      disable: true
+    networks: [pm]
+
+networks:
+  pm:
+    driver: bridge
+    ipam:
+      config:
+        # Pinned. The Hermes LLM server binds to this gateway address, so a
+        # recreated network picking a different subnet would silently cut the
+        # portfolio manager off from its reasoning backend.
+        - subnet: 172.19.0.0/16
+          gateway: 172.19.0.1

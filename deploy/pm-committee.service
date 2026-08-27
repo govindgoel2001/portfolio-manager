@@ -1,0 +1,24 @@
+[Unit]
+Description=Run one committee sitting inside the portfolio container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/portfolio-manager/deploy
+
+# Runs inside the app container rather than on the host: the container is the
+# only place with the dependencies, the config and the route to the Hermes LLM
+# server on the compose bridge.
+ExecStart=/usr/bin/docker compose exec -T app python run_committee.py --count 3
+
+# Four models answering and then auditing each other takes minutes per name,
+# and three names is the normal batch. This is a ceiling for a wedged run,
+# not an expected duration.
+TimeoutStartSec=2400
+
+# A failed sitting is not worth waking anybody for. The next one is at most a
+# few hours away and the previous verdicts are still on file.
+Restart=no
+StandardOutput=journal
+StandardError=journal

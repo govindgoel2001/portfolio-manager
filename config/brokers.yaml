@@ -1,0 +1,63 @@
+# THE EXTENSION POINT.
+#
+# Adding a broker is: write src/brokers/<name>.py implementing the Broker
+# protocol, then add an entry here and point an asset class at it in
+# universe.yaml. Nothing in the pipeline, risk engine, dashboard or API
+# changes. Run `python -m src.brokers.registry --check` to verify a new
+# adapter satisfies the protocol before you route anything to it.
+
+version: 1
+
+brokers:
+
+  alpaca_paper:
+    adapter: alpaca
+    enabled: true
+    mode: paper                       # paper | live
+    supports: [us_stocks, gold, oil, crypto, sectors, index_etfs, theme_etfs,
+              clean_energy]
+    credentials:
+      key_id:    ${ALPACA_KEY_ID}
+      secret:    ${ALPACA_SECRET_KEY}
+    endpoints:
+      trading: https://paper-api.alpaca.markets
+      data:    https://data.alpaca.markets
+    # A live-mode Alpaca broker is refused auto-execution by src/risk.py
+    # regardless of what config says.
+
+  mock:
+    adapter: mock
+    enabled: true
+    mode: paper
+    supports: [us_stocks, gold, oil, crypto, sectors, index_etfs, theme_etfs,
+              clean_energy]
+    # Deterministic seeded feed. Used when Alpaca credentials are absent so
+    # the dashboard and pipeline are fully exercisable with no keys.
+    seed: 20260826
+
+  # --- Not yet implemented. Uncomment once the adapter file exists. ---
+  #
+  # dhan:
+  #   adapter: dhan
+  #   enabled: false
+  #   mode: paper
+  #   supports: [in_stocks]
+  #   credentials:
+  #     client_id:    ${DHAN_CLIENT_ID}
+  #     access_token: ${DHAN_ACCESS_TOKEN}
+  #   endpoints:
+  #     trading: https://api.dhan.co
+  #
+  # hyperliquid:
+  #   adapter: hyperliquid
+  #   enabled: false
+  #   mode: paper
+  #   supports: [crypto, perps]
+  #   credentials:
+  #     wallet:      ${HL_WALLET_ADDRESS}
+  #     private_key: ${HL_PRIVATE_KEY}
+  #   endpoints:
+  #     trading: https://api.hyperliquid.xyz
+
+# Used when an asset class names a broker that is disabled or missing creds.
+fallback: mock

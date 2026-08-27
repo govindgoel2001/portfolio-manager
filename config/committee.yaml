@@ -1,0 +1,72 @@
+# The committee.
+#
+# Four seats, four different model families, one question. The point is not
+# four opinions, it is four *decorrelated* opinions: models from the same
+# family share training data and tend to share mistakes, so a unanimous verdict
+# from four checkpoints of one model means much less than it looks like.
+#
+# Every model here was confirmed present on the opencode-go provider with
+# `opencode models`. Claude is not on that provider, so the seat list differs
+# from a committee built on direct API keys.
+
+version: 1
+
+enabled: true
+
+seats:
+  - name: Kimi K3
+    model: opencode-go/kimi-k3
+    colour: "#35d0c8"
+  - name: GPT
+    model: opencode-go/gpt-5.6-luna
+    colour: "#4ade80"
+  - name: GLM
+    model: opencode-go/glm-5.3
+    colour: "#f0883e"
+  - name: Grok
+    model: opencode-go/grok-4.6
+    colour: "#c084fc"
+
+# Used when a seat is unreachable and the run still needs four opinions.
+# Tried in order, and the report always names which seat actually answered,
+# so a substitution is visible rather than silent.
+reserves:
+  - name: Qwen
+    model: opencode-go/qwen3.8-max
+    colour: "#fb7185"
+  # Both DeepSeek variants return an empty completion through opencode-go:
+  # the reply comes back with zero input and zero output tokens, so the
+  # request is not reaching the model at all. Kept on the bench rather than
+  # deleted, because this is a provider problem and it may simply start
+  # working again. Verify with `opencode models` and a one line completion
+  # before promoting it back to a seat.
+  - name: DeepSeek
+    model: opencode-go/deepseek-v4-pro
+    colour: "#4a7dff"
+
+# Below this many answering seats the verdict is not reported as a consensus at
+# all. Two models agreeing is a coincidence, not a committee.
+min_seats_for_consensus: 3
+
+# The second round. Each seat's factual claims are put back to every other seat
+# to be marked supported, contradicted or unverifiable against the evidence
+# that was in the prompt. This is where a confident wrong number gets caught,
+# and it is the only part of the process that reliably changes a verdict.
+cross_examine: true
+max_claims_per_seat: 5
+
+# How much the committee is allowed to matter.
+#
+# It cannot place an order, pick a symbol, or move a limit. All it can do is
+# scale a target weight the deterministic allocator already produced, within
+# this band, and the risk gate still runs afterwards on the result. A committee
+# that could size positions would be a committee that could talk itself into
+# anything.
+influence:
+  min_multiplier: 0.80
+  max_multiplier: 1.20
+  # No scaling at all until this many seats answered and disagreement is below
+  # the ceiling. A split committee is an argument for the default, not for a
+  # bigger bet.
+  require_seats: 3
+  max_disagreement: 60

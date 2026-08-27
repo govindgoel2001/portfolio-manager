@@ -1,0 +1,63 @@
+# The locked rubric. Sub-scores are computed in Python (src/score.py) so the
+# arithmetic is stable and replayable; the model only explains them.
+# Weights must sum to 1.0, and the loader asserts it.
+
+version: 3
+
+# Weighted for a buy and hold portfolio, so what a business is worth and how
+# well it runs outrank what its price did last quarter. A momentum-led rubric
+# is a trading rubric, and it produces a book that has to be traded.
+weights:
+  valuation:   0.20   # what you pay
+  quality:     0.18   # what you get: margins, returns, leverage
+  catalyst:    0.11   # known events between here and the thesis playing out
+  volatility:  0.11   # how rough the ride is
+  momentum:    0.11   # the market's current opinion, deliberately minor
+  liquidity:   0.09   # can you get out
+  trend:       0.09   # price against its own averages
+  smart_money: 0.06   # what insiders, Congress and tracked funds disclosed
+  sentiment:   0.05   # how the coverage reads, see below
+
+# Sentiment is the one component that is a model's opinion rather than a
+# measurement, so it carries the smallest weight on the board. It is noisy, it
+# mean reverts, and on a horizon of months it should nudge a decision rather
+# than make one. It is scored from recent headlines, shrunk toward neutral by
+# the model's own confidence, and left UNSCORED when there is not enough news.
+
+# The four price-derived components (momentum, volatility, liquidity, trend)
+# deliberately sum to 0.40, which is exactly risk.yaml's min_rubric_coverage.
+# That is what lets the portfolio keep working through a fundamentals outage:
+# price data alone still clears the floor. Any new component must be funded
+# from the non-price side, never from these four, or a yfinance outage starts
+# silently freezing the book.
+
+# Smart money is what insiders, members of Congress and a tracked list of
+# funds actually disclosed, from SEC and House Clerk filings. It is weighted
+# just above sentiment because it is somebody's money rather than a model's
+# opinion, and still small because every one of those sources is lagged: a
+# 13F is up to 45 days stale, a congressional PTR up to 45, a Form 4 two.
+# A symbol with no disclosures is UNSCORED, never neutral.
+
+momentum:
+  lookbacks: [63, 126, 252]   # trading days: a quarter, a half, a year
+  weights:   [0.2, 0.3, 0.5]  # weighted long, because the horizon is long
+
+trend:
+  fast_ma: 50
+  slow_ma: 200
+
+volatility:
+  window: 63
+  # Annualised vol above this scores 0, below the floor scores 100.
+  ceiling: 0.60
+  floor: 0.12
+
+liquidity:
+  window: 21
+  # Median daily dollar volume. Above target scores 100.
+  target_usd: 50000000
+
+# Components with no data source stay UNSCORED and are reported as such. They
+# are filled with this value so the arithmetic completes, and every report
+# lists which components were filled rather than measured.
+neutral_when_missing: 50
