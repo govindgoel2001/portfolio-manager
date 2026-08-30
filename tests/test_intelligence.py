@@ -85,6 +85,61 @@ def test_ptr_row_parses_a_real_filing_line():
     assert sm._money(m.group("high")) == 15000.0
 
 
+def test_an_unreadable_report_is_not_cached_as_an_empty_disclosure(tmp_path,
+                                                                   monkeypatch):
+    """
+    The parser cached its failures under a one year time to live, so a process
+    that could not read PDFs at all recorded every member as having disclosed
+    nothing, and kept saying so for a year. pypdf was missing from the deployed
+    image and this is exactly how that stayed invisible.
+
+    A failure to read must leave no cache entry, so the next run tries again.
+    """
+    monkeypatch.setattr(sm, "CACHE_DIR", tmp_path)
+
+    def boom(*a, **k):
+        raise ImportError("No module named 'pypdf'")
+
+    monkeypatch.setattr(sm.requests, "get", boom)
+
+    assert sm._parse_ptr("20035143", "2026", "A Member", "2026-08-21") == []
+    assert not list(tmp_path.glob("ptr_*")), (
+        "an unreadable report was cached, so the next run inherits it as a "
+        "genuine finding of no disclosures")
+
+
+def test_every_directly_imported_package_is_declared():
+    """
+    requests was only present because yfinance happened to pull it in, and
+    pypdf was not present at all. A dependency you import by name is yours to
+    declare, whichever other package happens to drag it along today.
+    """
+    import pathlib
+    import re as _re
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    declared = {
+        _re.split(r"[<>=\[]", line, maxsplit=1)[0].strip().lower()
+        for line in (root / "requirements.txt").read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+
+    stdlib_or_local = {"src", "api", "tests", "__future__"}
+    imported: set[str] = set()
+    for path in root.glob("src/**/*.py"):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            m = _re.match(r"\s*(?:from|import)\s+([a-zA-Z_][\w]*)", line)
+            if m:
+                imported.add(m.group(1).lower())
+
+    third_party = {"requests", "pypdf", "yfinance", "anthropic", "fastapi",
+                   "yaml", "dotenv", "httpx", "websockets", "fastembed"}
+    aliases = {"yaml": "pyyaml", "dotenv": "python-dotenv"}
+
+    missing = {aliases.get(n, n) for n in (imported & third_party)} - declared
+    assert not missing, f"imported but not in requirements.txt: {sorted(missing)}"
+
+
 # --------------------------------------------------------------------------
 # committee
 # --------------------------------------------------------------------------

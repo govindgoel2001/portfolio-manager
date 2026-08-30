@@ -256,8 +256,18 @@ def _parse_ptr(doc_id: str, year: str, member: str, filed: str) -> list[Trade]:
         reader = PdfReader(BytesIO(resp.content))
         text = "\n".join((p.extract_text() or "") for p in reader.pages)
     except Exception as e:  # noqa: BLE001
-        log.debug("PTR %s unreadable: %s", doc_id, e)
-        _cache_put(key, [])
+        # Deliberately not cached, and deliberately not at debug level.
+        #
+        # This used to swallow the failure and write an empty result under a one
+        # year time to live, which cannot tell "this member disclosed nothing"
+        # apart from "this process cannot read PDFs at all". pypdf was missing
+        # from the deployed image, so every report raised ImportError here, every
+        # raise cached an empty list, and the congressional trackers reported no
+        # disclosed purchases for a year while looking perfectly healthy. A
+        # failure to read is not a finding of nothing.
+        log.warning("PTR %s could not be read (%s: %s). Not caching, so the "
+                    "next run retries rather than inheriting this as an empty "
+                    "disclosure.", doc_id, type(e).__name__, e)
         return []
 
     # Filings before electronic submission are scans with no text layer. There

@@ -9,6 +9,14 @@ yfinance>=0.2.50
 websockets>=13.0
 pytest>=8.3
 
+# Both are imported directly by src/data/smartmoney.py. requests happened to be
+# present as a transitive dependency of yfinance and pypdf did not, so the
+# congressional disclosure parser raised ImportError on every filing in the
+# deployed image. Anything imported by name belongs here whether or not
+# something else drags it in.
+requests>=2.32
+pypdf>=5.1
+
 # Semantic retrieval. ONNX on CPU, no torch. If this is absent src/rag.py
 # falls back to lexical hashing and reports itself as degraded.
 fastembed>=0.8,<0.9
