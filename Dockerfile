@@ -34,7 +34,7 @@ COPY prompts/ ./prompts/
 # Every entry point. run_event.py was missing here once, and the news watcher
 # failed silently every 20 minutes for 17 hours because the scheduler kept
 # reporting a clean exit for a file that was not in the image.
-COPY run_daily.py run_event.py run_committee.py scheduler.py ./
+COPY run_daily.py run_event.py run_committee.py refresh_trackers.py scheduler.py ./
 
 # data/ and reports/ are bind-mounted at runtime so the audit trail outlives
 # any container rebuild.

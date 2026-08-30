@@ -3,10 +3,11 @@
 Sit the committee on the next few names.
 
 Runs eight times a day on a rotation rather than all at once on everything.
-A sitting costs four models several minutes of real inference, so covering
-thirty one instruments in one pass would take hours and would produce a wall
-of verdicts nobody reads. Three at a time, eight times a day, covers the whole
-universe roughly every eighteen hours and keeps every verdict recent.
+A sitting costs four models several minutes of real inference, so covering the
+whole rotation in one pass would take hours and would produce a wall of
+verdicts nobody reads. Three at a time, eight times a day, is twenty four
+sittings against a rotation of forty three names, so every instrument is
+re-argued about every forty three hours.
 
 The rotation is a cursor on disk, not a random sample. Random sampling leaves
 gaps: over a week some names get picked four times and others never, and the

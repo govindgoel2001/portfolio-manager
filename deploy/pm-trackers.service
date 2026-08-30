@@ -1,0 +1,23 @@
+[Unit]
+Description=Rebuild the tracker leaderboard from the latest disclosed filings
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/portfolio-manager/deploy
+
+# Inside the app container, like the committee sitting, because that is where
+# the dependencies, the config and the SEC contact address live.
+ExecStart=/usr/bin/docker compose exec -T app python refresh_trackers.py --force
+
+# Sixteen CIKs from the SEC at ten requests a second, then several hundred
+# symbols of daily prices. Twenty minutes is a ceiling for a wedged run, not an
+# expected duration; a warm cache finishes in well under a minute.
+TimeoutStartSec=1800
+
+# The board is a read model. A failed rebuild leaves yesterday's board in place,
+# which is stale but not wrong, so this is not worth a retry storm.
+Restart=no
+StandardOutput=journal
+StandardError=journal

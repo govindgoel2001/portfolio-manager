@@ -1,0 +1,26 @@
+[Unit]
+Description=Rebuild the tracker leaderboard once a day
+Documentation=file:///opt/portfolio-manager/refresh_trackers.py
+
+[Timer]
+# 03:20 New York, in the gap between the overnight pipeline at 02:00 and the
+# first committee sitting at 04:05, so a slow SEC crawl cannot collide with
+# either of them.
+#
+# Daily rather than quarterly even though 13Fs are quarterly filings. Filings
+# land on no fixed day inside the 45 day window, congressional transaction
+# reports arrive continuously, and every excess return on the board is measured
+# against live prices, so the numbers move on days when no filing appeared.
+OnCalendar=*-*-* 03:20:00 America/New_York
+
+# The board is read by the dashboard and by the recommended basket. If the box
+# was down at 03:20, rebuild on the way back up rather than serving a board
+# that is a day older than it claims.
+Persistent=true
+
+# The SEC throttles by client. Nudging the start stops every deployment of this
+# code from arriving at data.sec.gov on the same second.
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

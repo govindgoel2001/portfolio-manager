@@ -2,13 +2,17 @@
 """
 The clock.
 
-Four jobs, not one:
+Five jobs, not one:
 
   open       09:35 New York, weekdays. What changed overnight, and did anything
              gap through a level that matters.
   close      16:05 New York, weekdays. The main review, on settled closes.
   overnight  02:00 New York, daily. Crypto trades while the equity market
              sleeps, and this is when Asia and Europe have already moved.
+  trackers   03:20 New York, daily. Re-reads the disclosed books behind the
+             leaderboard. Without it the board is only rebuilt when somebody
+             opens the dashboard after its cache has gone cold, which is not a
+             schedule.
   news       every PM_NEWS_INTERVAL_MIN minutes. Checks headlines and runs the
              event path, which is the only path that can trade by itself.
 
@@ -63,6 +67,10 @@ DAILY_JOBS = [
     Job("open", "run_daily.py", ["--tag", "open"], 9, 35, True),
     Job("close", "run_daily.py", ["--tag", "close"], 16, 5, True),
     Job("overnight", "run_daily.py", ["--tag", "overnight"], 2, 0, False),
+    # Sixteen CIKs at the SEC's ten requests a second, then a few hundred
+    # symbols of daily prices, so it gets a longer leash than a review does.
+    Job("trackers", "refresh_trackers.py", ["--force"], 3, 20, False,
+        timeout=1800),
 ]
 
 

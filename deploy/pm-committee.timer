@@ -15,8 +15,9 @@ Documentation=file:///opt/portfolio-manager/run_committee.py
 #   17:05  after the close, on the day's actual prints
 #   21:05  overnight, with Asia trading
 #
-# Three names a sitting covers all thirty one instruments about every
-# eighteen hours, so no verdict on the board is ever more than a day old.
+# Three names a sitting is twenty four a day against a rotation of forty three
+# (thirty two companies and eleven sector funds; the crypto pairs are not sat
+# on), so the whole rotation is re-argued about every forty three hours.
 OnCalendar=*-*-* 04,09:05:00 America/New_York
 OnCalendar=*-*-* 10:35:00 America/New_York
 OnCalendar=*-*-* 12,14:05:00 America/New_York
