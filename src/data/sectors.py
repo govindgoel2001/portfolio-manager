@@ -506,7 +506,7 @@ def sector_investors(etf: str, *, limit: int = 8) -> list[dict[str, Any]]:
             "name": t["name"],
             "book_weight": round(weight, 4),
             "positions": sorted(names)[:8],
-            "mean_excess": t.get("mean_excess"),
+            "excess": t.get("excess"),
             "beat_rate": t.get("beat_rate"),
             "as_of": t.get("as_of"),
         })

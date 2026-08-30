@@ -357,7 +357,10 @@ def _filings(cik: str, form: str, limit: int) -> list[dict[str, str]]:
     key = f"subs_{cik}_{form}"
     cached = _cache_get(key, ttl=12 * 3600)
     if cached is not None:
-        return cached[:limit]
+        # Filtered again on the way out, not only on the way in. Caches written
+        # by an older build have amendments and same-day duplicates baked into
+        # them, and those would outlive the fix by their whole time to live.
+        return _usable_filings(cached, form)[:limit]
     try:
         resp = _sec_get(f"https://data.sec.gov/submissions/CIK{cik}.json")
         resp.raise_for_status()
@@ -365,15 +368,45 @@ def _filings(cik: str, form: str, limit: int) -> list[dict[str, str]]:
     except Exception as e:  # noqa: BLE001
         log.warning("submissions for %s unavailable: %s", cik, e)
         return []
-    rows = [
-        {"form": recent["form"][i],
-         "filed": recent["filingDate"][i],
-         "accession": recent["accessionNumber"][i].replace("-", "")}
-        for i in range(len(recent.get("form", [])))
-        if recent["form"][i].startswith(form)
-    ]
+    rows = _rows_for_form(recent, form)
     _cache_put(key, rows)
     return rows[:limit]
+
+
+def _rows_for_form(recent: dict[str, list[str]], form: str) -> list[dict[str, str]]:
+    """
+    The filings of exactly this type, newest first, one per filing date.
+
+    Exactly, because an amendment is not a filing of the same kind. A 13F-HR/A
+    restates a handful of positions, normally the ones a manager held back
+    under confidential treatment, and the rest of the portfolio is simply
+    absent from it. Berkshire's August 2025 amendment listed three homebuilders
+    and nothing else. Matching on a prefix pulled that in as a quarterly book,
+    which read as Berkshire selling ninety seven percent of its portfolio and
+    buying housing.
+
+    One per date, because a filer with several managers can land two 13F-HRs on
+    the same day. Two filings on one date make a window of zero length, and the
+    caller skips zero length windows, so the second filing silently swallowed
+    the book that should have been measured from that date.
+    """
+    rows = [{"form": recent["form"][i],
+             "filed": recent["filingDate"][i],
+             "accession": recent["accessionNumber"][i].replace("-", "")}
+            for i in range(len(recent.get("form", [])))]
+    return _usable_filings(rows, form)
+
+
+def _usable_filings(rows: list[dict[str, str]], form: str) -> list[dict[str, str]]:
+    """Exactly this form, newest first, at most one per filing date."""
+    seen: set[str] = set()
+    out: list[dict[str, str]] = []
+    for row in rows:
+        if row.get("form") != form or row["filed"] in seen:
+            continue
+        seen.add(row["filed"])
+        out.append(row)
+    return out
 
 
 def _info_table(cik: str, accession: str) -> dict[str, float]:

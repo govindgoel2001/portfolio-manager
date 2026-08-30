@@ -1258,7 +1258,7 @@ function sectorDetail(d) {
         <div class="meta">${(i.book_weight * 100).toFixed(1)}% of their disclosed book &middot; ${esc(i.positions.join(', '))}</div>
       </div>
       <div style="text-align:right">
-        <div class="${cls(i.mean_excess)}">${i.mean_excess === null ? '--' : (i.mean_excess >= 0 ? '+' : '') + i.mean_excess.toFixed(2)}</div>
+        <div class="${cls(i.excess)}">${i.excess === null ? '--' : (i.excess >= 0 ? '+' : '') + i.excess.toFixed(2)}</div>
         <div class="meta">mean excess</div>
       </div>
     </div>`).join('');
@@ -1316,7 +1316,7 @@ function viewTrackers() {
   if (!d) return '<div class="empty">leaderboard unavailable, it may still be building</div>';
 
   const rows = d.trackers.map((t) => {
-    if (t.mean_excess === null) {
+    if (t.excess === null) {
       return `<div class="row">
         <div class="sym" style="font-size:12px">${esc(t.name)}</div>
         <div class="meta">${esc(t.error || 'not measured')}</div>
@@ -1333,7 +1333,7 @@ function viewTrackers() {
           <div class="winbar">${win}</div>
         </div>
         <div style="text-align:right">
-          <div class="headline ${cls(t.mean_excess)}">${t.mean_excess >= 0 ? '+' : ''}${t.mean_excess.toFixed(2)}</div>
+          <div class="headline ${cls(t.excess)}">${t.excess >= 0 ? '+' : ''}${t.excess.toFixed(2)}</div>
           <div class="meta">mean excess</div>
         </div>
       </div>`;
@@ -1394,7 +1394,7 @@ function viewBasket() {
   const follows = (b.followable || []).map((f) => `
     <button class="follow-btn ${b.following === f.name ? 'active' : ''}" data-follow="${esc(f.name)}">
       <span class="follow-name">${esc(f.name)}</span>
-      <span class="follow-edge ${cls(f.mean_excess)}">${f.mean_excess >= 0 ? '+' : ''}${f.mean_excess.toFixed(2)}</span>
+      <span class="follow-edge ${cls(f.excess)}">${f.excess >= 0 ? '+' : ''}${f.excess.toFixed(2)}</span>
     </button>`).join('');
 
   const sleeves = b.sleeves.map((s) => `

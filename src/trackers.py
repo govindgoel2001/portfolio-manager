@@ -56,6 +56,20 @@ MAX_POSITIONS = 25          # a 13F tail of 400 names is index tracking
 # measured record is good.
 MAX_BOOK_AGE_DAYS = 150
 
+# A window has to price most of the book it claims to represent. Below this it
+# is a handful of survivors wearing the manager's name: the weight of whatever
+# could not be priced gets redistributed onto whatever could, which quietly
+# deletes anything delisted at zero and reads three homebuilders as Berkshire.
+MIN_COVERAGE = 0.60
+
+# And enough names that the number is about a book rather than about one stock.
+# Two disclosed purchases held for ninety days is a coin toss, not a record.
+MIN_NAMES = 5
+
+# One surviving window is one quarter, and one quarter is luck. A record needs
+# at least a second one to be a record rather than an anecdote.
+MIN_WINDOWS = 2
+
 
 @dataclass
 class Holding:
@@ -77,10 +91,22 @@ class Window:
     ret: float
     bench: float
     names: int
+    #: fraction of the book's weight that could actually be priced over these
+    #: dates. Anything under MIN_COVERAGE is not a measurement of this book.
+    coverage: float = 1.0
 
     @property
     def excess(self) -> float:
         return round(self.ret - self.bench, 2)
+
+    @property
+    def days(self) -> int:
+        return (dt.date.fromisoformat(self.end)
+                - dt.date.fromisoformat(self.start)).days
+
+    @property
+    def measurable(self) -> bool:
+        return self.coverage >= MIN_COVERAGE and self.names >= MIN_NAMES
 
 
 @dataclass
@@ -93,7 +119,14 @@ class Tracker:
     holdings: list[Holding] = field(default_factory=list)
     windows: list[Window] = field(default_factory=list)
     beat_rate: float | None = None
-    mean_excess: float | None = None
+    #: compounded book return minus compounded benchmark return over the whole
+    #: measured span, in percentage points. Not an average of window excesses:
+    #: the last window of every fund runs from its newest filing to today and
+    #: is a fortnight rather than a quarter, and averaging gave that fortnight
+    #: the same vote as a full quarter.
+    excess: float | None = None
+    span_days: int | None = None
+    dropped_windows: int = 0
     latest_excess: float | None = None
     stale_days: int | None = None
     note: str = ""
@@ -269,14 +302,28 @@ def _book(cik: str, accession: str) -> list[Holding]:
     return holdings
 
 
-def _measure(holdings: list[Holding], start: str, end: str) -> tuple[float, int] | None:
-    """Value weighted return of a book, renormalised over what could be priced."""
+def _measure(holdings: list[Holding], start: str,
+             end: str) -> tuple[float, int, float] | None:
+    """
+    Value weighted return of a book, with the share of it that could be priced.
+
+    The renormalisation over priced names is still here, because a book with one
+    unlisted line in it is still that book. What is new is that the caller is
+    told how much of the weight the number rests on, so a window that priced a
+    fifth of a portfolio can be thrown out instead of reported as the portfolio.
+    """
+    total = sum(h.weight for h in holdings)
+    if total <= 0:
+        return None
     priced = [(h, _ret(h.symbol, start, end)) for h in holdings]
     priced = [(h, r) for h, r in priced if r is not None]
     if not priced:
         return None
-    weight = sum(h.weight for h, _ in priced) or 1.0
-    return sum(h.weight * r for h, r in priced) / weight, len(priced)
+    weight = sum(h.weight for h, _ in priced)
+    if weight <= 0:
+        return None
+    return (sum(h.weight * r for h, r in priced) / weight,
+            len(priced), weight / total)
 
 
 def fund_tracker(name: str, cik: str, *, quarters: int = 4) -> Tracker:
@@ -320,10 +367,11 @@ def fund_tracker(name: str, cik: str, *, quarters: int = 4) -> Tracker:
         bench = _ret(BENCH, start, end)
         if measured is None or bench is None:
             continue
-        ret, n = measured
+        ret, n, coverage = measured
         tracker.windows.append(Window(
             label=f"{start} to {end}", start=start, end=end,
-            ret=round(ret, 2), bench=round(bench, 2), names=n))
+            ret=round(ret, 2), bench=round(bench, 2), names=n,
+            coverage=round(coverage, 4)))
 
     _summarise(tracker)
     tracker.note = (
@@ -415,7 +463,8 @@ def inverse_tracker(name: str, cik: str, *, quarters: int = 4) -> Tracker:
             label=f"{start} to {end}, bought what they sold",
             start=start, end=end,
             ret=round(statistics.fmean(r for _, r in rets), 2),
-            bench=round(bench, 2), names=len(rets)))
+            bench=round(bench, 2), names=len(rets),
+            coverage=round(len(rets) / len(sold), 4)))
 
     if len(ordered) >= 2:
         latest = _moves(cik, ordered[-1]["accession"], ordered[-2]["accession"])
@@ -495,7 +544,8 @@ def congress_tracker(name: str, *, member: str | None = None,
         tracker.windows.append(Window(
             label=f"{month} buys, {hold_days}d hold", start=start, end=end,
             ret=round(statistics.fmean(r for _, r in rets), 2),
-            bench=round(bench, 2), names=len(rets)))
+            bench=round(bench, 2), names=len(rets),
+            coverage=round(len(rets) / len(symbols), 4)))
 
     recent = sorted({t.symbol for t in buys
                      if t.filed_on >= (today - dt.timedelta(days=90)).isoformat()})
@@ -512,12 +562,45 @@ def congress_tracker(name: str, *, member: str | None = None,
 
 # --------------------------------------------------------------------------
 
+def _compound(values: Iterable[float]) -> float:
+    """Chain period returns given in percent, and hand back percent."""
+    total = 1.0
+    for v in values:
+        total *= 1 + v / 100
+    return (total - 1) * 100
+
+
 def _summarise(tracker: Tracker) -> None:
+    """
+    Collapse the windows into one number over one span.
+
+    Two things this deliberately does not do. It does not average the window
+    excesses, because the windows are not the same length: four quarters and the
+    fortnight since the newest filing used to carry one vote each, which handed
+    a fifth of every manager's score to the last two weeks of tape. And it does
+    not keep a window that priced only a sliver of the book, because
+    renormalising over the survivors turns whatever is left into the manager.
+    """
     if not tracker.windows:
         tracker.error = tracker.error or "no window could be priced"
         return
-    excesses = [w.excess for w in tracker.windows]
-    tracker.mean_excess = round(statistics.fmean(excesses), 2)
+
+    usable = [w for w in tracker.windows if w.measurable]
+    tracker.dropped_windows = len(tracker.windows) - len(usable)
+    tracker.windows = usable
+    if len(usable) < MIN_WINDOWS:
+        tracker.error = tracker.error or (
+            "%d of %d windows priced %.0f%% of the book across at least %d "
+            "names, which is under the %d needed to call it a record"
+            % (len(usable), len(usable) + tracker.dropped_windows,
+               MIN_COVERAGE * 100, MIN_NAMES, MIN_WINDOWS))
+        return
+
+    book = _compound(w.ret for w in usable)
+    bench = _compound(w.bench for w in usable)
+    tracker.excess = round(book - bench, 2)
+    tracker.span_days = sum(w.days for w in usable)
+    excesses = [w.excess for w in usable]
     tracker.latest_excess = excesses[-1]
     tracker.beat_rate = round(sum(1 for e in excesses if e > 0) / len(excesses), 3)
 
@@ -526,9 +609,10 @@ def build(*, ttl: float = 12 * 3600) -> dict[str, Any]:
     """
     Every configured tracker, measured and ranked by mean excess over SPY.
 
-    Ranked by the mean rather than the latest, because one good quarter is
-    noise. The board still shows both, and it shows how many quarters each
-    number is averaged over so a single lucky window is visible as one.
+    Ranked by the compounded excess over each book's whole measured span rather
+    than by the latest window, because one good quarter is noise. The board
+    still shows the latest window and the number of windows behind each figure,
+    so a record resting on one lucky quarter is visible as one.
     """
     cached = _cache_get("board", ttl)
     if cached is not None:
@@ -561,11 +645,11 @@ def build(*, ttl: float = 12 * 3600) -> dict[str, Any]:
         except Exception as e:  # noqa: BLE001
             log.warning("tracker %s failed: %s", spec.get("name"), e)
 
-    measured = [t for t in out if t.mean_excess is not None]
-    unmeasured = [t for t in out if t.mean_excess is None]
-    measured.sort(key=lambda t: t.mean_excess, reverse=True)
+    measured = [t for t in out if t.excess is not None]
+    unmeasured = [t for t in out if t.excess is None]
+    measured.sort(key=lambda t: t.excess, reverse=True)
 
-    beat = [t for t in measured if t.mean_excess > 0]
+    beat = [t for t in measured if t.excess > 0]
     payload = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "benchmark": BENCH,
@@ -574,10 +658,12 @@ def build(*, ttl: float = 12 * 3600) -> dict[str, Any]:
             "measured": len(measured),
             "beating_benchmark": len(beat),
             "median_excess": (round(statistics.median(
-                [t.mean_excess for t in measured]), 2) if measured else None),
+                [t.excess for t in measured]), 2) if measured else None),
+            "dropped_windows": sum(t.dropped_windows for t in out),
             "note": (f"{len(beat)} of {len(measured)} measured trackers beat "
-                     f"{BENCH} on mean excess return. Measured from the date "
-                     f"each position became public, not from the trade date."),
+                     f"{BENCH}, compounded over each book's own measured span "
+                     f"and held from the date each position became public "
+                     f"rather than from the trade date."),
         },
     }
     _cache_put("board", payload)
@@ -588,13 +674,13 @@ def top_holdings(payload: dict[str, Any], n: int = 12) -> list[dict[str, Any]]:
     """
     What the trackers that actually beat the benchmark are holding.
 
-    Restricted to those with positive mean excess on purpose: a consensus built
-    from every filer is just a market cap weighted index with extra steps.
+    Restricted to those with positive excess on purpose: a consensus built from
+    every filer is just a market cap weighted index with extra steps.
     """
     weights: dict[str, float] = {}
     backers: dict[str, set[str]] = {}
     for t in payload.get("trackers", []):
-        if (t.get("mean_excess") or 0) <= 0:
+        if (t.get("excess") or 0) <= 0:
             continue
         # A manager who stopped filing still has a track record but no current
         # book. Scion's last 13F is most of a year old; treating those names as

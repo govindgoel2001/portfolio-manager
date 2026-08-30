@@ -386,7 +386,7 @@ def _backers(board: dict[str, Any] | None) -> dict[str, list[str]]:
     if not board:
         return out
     for t in board.get("trackers", []):
-        if (t.get("mean_excess") or 0) <= 0:
+        if (t.get("excess") or 0) <= 0:
             continue
         if (t.get("stale_days") or 0) > 150:
             continue
@@ -414,19 +414,19 @@ def followable(board: dict[str, Any] | None) -> list[dict[str, Any]]:
         return []
     rows = []
     for t in board.get("trackers", []):
-        if t.get("mean_excess") is None or not t.get("holdings"):
+        if t.get("excess") is None or not t.get("holdings"):
             continue
         rows.append({
             "name": t["name"],
             "key": t.get("key"),
             "kind": t.get("kind"),
-            "mean_excess": t["mean_excess"],
+            "excess": t["excess"],
             "beat_rate": t.get("beat_rate"),
             "positions": len(t.get("holdings", [])),
             "stale_days": t.get("stale_days"),
             "verdict": ("has beaten the index on our measurement"
-                        if t["mean_excess"] > 0 else
+                        if t["excess"] > 0 else
                         "has trailed the index on our measurement"),
         })
-    rows.sort(key=lambda r: r["mean_excess"], reverse=True)
+    rows.sort(key=lambda r: r["excess"], reverse=True)
     return rows
