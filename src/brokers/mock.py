@@ -69,6 +69,7 @@ class MockBroker(Broker):
                                      "sectors"),
         state_path: str | Path = "data/mock_state.json",
         starting_cash: float = STARTING_CASH,
+        as_of: dt.datetime | None = None,
     ) -> None:
         self.name = name
         self.mode = "paper"  # type: ignore[assignment]
@@ -76,7 +77,13 @@ class MockBroker(Broker):
         self.seed = seed
         self._path = Path(state_path)
         self._starting_cash = starting_cash
+        #: pin the clock, so a test can place itself inside a trading session
+        #: instead of inheriting whatever day the suite happens to run on
+        self._as_of = as_of
         self._state = self._load()
+
+    def _now(self) -> dt.datetime:
+        return self._as_of or dt.datetime.now(dt.timezone.utc)
 
     # -- persisted state --------------------------------------------------
 
@@ -107,24 +114,41 @@ class MockBroker(Broker):
 
         price = start
         bars: list[Bar] = []
-        today = dt.datetime.now(dt.timezone.utc).replace(
-            hour=20, minute=0, second=0, microsecond=0
-        )
+        now = self._now()
+        session = now.replace(hour=20, minute=0, second=0, microsecond=0)
         is_crypto = "/" in symbol
+
+        # History runs to the session before this one, then the newest bar is
+        # stamped at `now`.
+        #
+        # It used to stop at the previous session and go no further, and weekend
+        # dates were skipped for equities, so the freshest price this broker
+        # could return was yesterday's close at best and Friday's close all
+        # weekend. The freshness gate rejects anything over 36 hours, so a
+        # simulated account could not trade at all from Friday evening until
+        # Tuesday morning, and the reason it gave was stale data rather than a
+        # closed market. A broker asked what the price is right now should
+        # answer with a print from right now.
         for i in range(days, 0, -1):
-            ts = today - dt.timedelta(days=i)
+            ts = session - dt.timedelta(days=i)
             if not is_crypto and ts.weekday() >= 5:
                 continue
             price *= math.exp(mu + sigma * rng.gauss(0, 1))
-            intraday = abs(rng.gauss(0, sigma * 0.6))
-            open_ = price * (1 + rng.gauss(0, sigma * 0.3))
-            high = max(open_, price) * (1 + intraday)
-            low = min(open_, price) * (1 - intraday)
-            volume = abs(rng.gauss(1.0, 0.25)) * (2e7 if not is_crypto else 5e5)
-            bars.append(Bar(ts=ts, open=round(open_, 4), high=round(high, 4),
-                            low=round(low, 4), close=round(price, 4),
-                            volume=round(volume, 2)))
+            bars.append(self._bar(ts, price, rng, mu, sigma, is_crypto))
+
+        price *= math.exp(mu + sigma * rng.gauss(0, 1))
+        bars.append(self._bar(now, price, rng, mu, sigma, is_crypto))
         return bars
+
+    def _bar(self, ts, price, rng, mu, sigma, is_crypto) -> Bar:
+        intraday = abs(rng.gauss(0, sigma * 0.6))
+        open_ = price * (1 + rng.gauss(0, sigma * 0.3))
+        high = max(open_, price) * (1 + intraday)
+        low = min(open_, price) * (1 - intraday)
+        volume = abs(rng.gauss(1.0, 0.25)) * (2e7 if not is_crypto else 5e5)
+        return Bar(ts=ts, open=round(open_, 4), high=round(high, 4),
+                   low=round(low, 4), close=round(price, 4),
+                   volume=round(volume, 2))
 
     # -- required interface -----------------------------------------------
 

@@ -13,6 +13,8 @@ from __future__ import annotations
 import copy
 import json
 
+import datetime as dt
+
 import pytest
 
 from src import allocate, config, risk, score
@@ -163,6 +165,34 @@ def test_stale_prices_block_a_proposal():
                             quotes={"GLD": StaleQuote()})
     assert "GLD" in verdict.blocked
     assert "stale" in verdict.blocked["GLD"]
+
+
+def test_the_simulated_broker_quotes_a_price_from_now_even_at_the_weekend():
+    """
+    The mock used to stop its history at the previous session and skip weekend
+    dates, so the newest equity print it could return was yesterday's close on a
+    weekday and Friday's close all weekend. Against the 36 hour freshness gate
+    that shut the paper account from Friday evening to Tuesday morning, and it
+    reported the outage as stale data rather than as a closed market.
+
+    Pinned to a Sunday here, because that is the case that used to fail and the
+    day the suite would otherwise pass through untested.
+    """
+    sunday = dt.datetime(2026, 8, 30, 10, 0, tzinfo=dt.timezone.utc)
+    assert sunday.weekday() == 6
+
+    b = MockBroker("mock", seed=20260826, state_path="/tmp/pm-mock-weekend.json",
+                   as_of=sunday)
+    quote = b.get_quotes(["NVDA"])["NVDA"]
+    age_hours = (sunday - quote.ts).total_seconds() / 3600
+
+    limit = float(config.risk()["gates"]["max_data_staleness_hours"])
+    assert age_hours <= limit, f"{age_hours:.1f}h old against a {limit:.0f}h gate"
+
+    # And the history behind it is still a weekday series, so the moving
+    # averages the rubric reads are not computed over invented weekend sessions.
+    history = b.get_bars(["NVDA"], 30)["NVDA"]
+    assert all(x.ts.weekday() < 5 for x in history[:-1])
 
 
 # --------------------------------------------------------------------------
